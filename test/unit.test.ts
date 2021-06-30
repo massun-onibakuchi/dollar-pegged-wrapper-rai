@@ -44,13 +44,13 @@ describe("WrappedCoin", async function () {
 
         await oracleRelayerMock.setRedemptionPrice(INITIAL_REDEMPTION_PRICE);
 
-        wrappedCoin = (await WrappedCoinFactory.deploy([
+        wrappedCoin = (await WrappedCoinFactory.deploy(
             coin.address,
             oracleRelayerMock.address,
             name,
             symbol,
             decimals,
-        ])) as WrappedCoin;
+        )) as WrappedCoin;
 
         coin.mint(wallet.address, amount);
         expect(await coin.balanceOf(wallet.address)).to.eq(amount);
