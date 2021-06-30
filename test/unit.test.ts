@@ -95,12 +95,13 @@ describe("WrappedCoin", async function () {
     const exponents = [2, 5, 27, 33];
     exponents.forEach(amountTest);
 
-    const balanceTest = async denominators => {
-        it(`balanceOf: balance depends on redemptionPrice - ${(10 / denominators).toFixed(2)}$ `, async () => {
+    const balanceTest = async denominator => {
+        it(`balanceOf: balance depends on redemptionPrice - ${(10 / denominator).toFixed(2)}$ `, async () => {
             await coin.mint(wallet.address, amount);
             await coin.approve(wrappedCoin.address, amount);
 
-            const redemptionPrice = toWei("1").div(BigNumber.from(denominators)).mul(RAY).div(toWei("1"));
+            // P_redemption = 10**18 / denominator * 10**27 / 10**18
+            const redemptionPrice = toWei("1").div(BigNumber.from(denominator)).mul(RAY).div(toWei("1"));
             await oracleRelayerMock.setRedemptionPrice(redemptionPrice);
 
             await coin.connect(wallet).approve(wrappedCoin.address, amount);
@@ -128,4 +129,22 @@ describe("WrappedCoin", async function () {
     };
 
     exponents.forEach(transferTest);
+
+    const approveTest = async exp => {
+        it(`transfer: transfer from wallet to other - amount 10**${exp}`, async () => {
+            const amount = BigNumber.from(10).pow(exp);
+            await mint(wallet, amount);
+            const approveAmount = amount.mul(await oracleRelayerMock.getCurrentRedemptionPrice()).div(RAY);
+
+            await wrappedCoin.connect(wallet).approve(other.address, approveAmount);
+            expect(await wrappedCoin.allowance(wallet.address, other.address)).to.eq(approveAmount);
+
+            await wrappedCoin.connect(other).transferFrom(wallet.address, other.address, approveAmount);
+
+            expect(await wrappedCoin.allowance(wallet.address, other.address)).to.eq(0);
+            expect(await wrappedCoin.balanceOf(wallet.address)).to.eq(0);
+            expect(await wrappedCoin.balanceOf(other.address)).to.eq(approveAmount);
+        });
+    };
+    exponents.forEach(approveTest);
 });
