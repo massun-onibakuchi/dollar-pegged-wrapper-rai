@@ -67,18 +67,13 @@ describe("WrappedCoin", async function () {
     };
 
     it("mint: update internal redemptionPrice", async () => {
-        // transfer coin
-        await coin.mint(wallet.address, amount);
-        expect(await coin.balanceOf(wallet.address)).to.eq(amount);
-
         await oracleRelayerMock.setRedemptionPrice(INITIAL_REDEMPTION_PRICE.div(2));
-
         // mint and update internal P_redemption
         await mint(wallet, 1000);
         expect(await wrappedCoin.getRedemptionPrice()).to.eq(INITIAL_REDEMPTION_PRICE.div(2));
     });
 
-    const amountTest = async exp => {
+    const mintTest = async exp => {
         it(`mint: increase minter and protocol balances amount 10**${exp}`, async () => {
             const amount = BigNumber.from(10).pow(exp);
             await mint(wallet, amount);
@@ -89,11 +84,38 @@ describe("WrappedCoin", async function () {
             // wrapped coin balance = deposited balance * redemptionPrice
             expect(await wrappedCoin.balanceOf(wallet.address)).to.eq(amount.mul(redemptionPrice).div(RAY));
             expect(await wrappedCoin.totalSupply()).to.eq(amount.mul(redemptionPrice).div(RAY));
+            expect(await coin.balanceOf(wallet.address)).to.eq(0);
         });
     };
 
     const exponents = [2, 5, 27, 33];
-    exponents.forEach(amountTest);
+    exponents.forEach(mintTest);
+
+    it("burn: update internal redemptionPrice", async () => {
+        await mint(wallet, 1000);
+        await oracleRelayerMock.setRedemptionPrice(INITIAL_REDEMPTION_PRICE.div(2));
+        // burn and update internal P_redemption
+        await wrappedCoin.burn(wallet.address, 1000);
+        expect(await wrappedCoin.getRedemptionPrice()).to.eq(INITIAL_REDEMPTION_PRICE.div(2));
+    });
+
+    const burnTest = async exp => {
+        it(`mint: increase minter and protocol balances amount 10**${exp}`, async () => {
+            const amount = BigNumber.from(10).pow(exp);
+            await mint(wallet, amount);
+            const redemptionPrice = await oracleRelayerMock.getCurrentRedemptionPrice();
+            const burnAmount = amount.mul(redemptionPrice).div(RAY);
+            await wrappedCoin.burn(wallet.address, burnAmount);
+
+            expect(await wrappedCoin.balanceOfUnderlying(wallet.address)).to.eq(0);
+            expect(await wrappedCoin.totalSupplyUnderlying()).to.eq(0);
+            // wrapped coin balance = deposited balance * redemptionPrice
+            expect(await wrappedCoin.balanceOf(wallet.address)).to.eq(0);
+            expect(await wrappedCoin.totalSupply()).to.eq(0);
+            expect(await coin.balanceOf(wallet.address)).to.eq(amount);
+        });
+    };
+    exponents.forEach(burnTest);
 
     const balanceTest = async denominator => {
         it(`balanceOf: balance depends on redemptionPrice - ${(10 / denominator).toFixed(2)}$ `, async () => {
