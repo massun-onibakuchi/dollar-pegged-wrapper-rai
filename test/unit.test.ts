@@ -19,12 +19,11 @@ describe("WrappedCoin", async function () {
     const symbol = "WrappedRAI";
     const decimals = 18;
     const RAY = BigNumber.from(10).pow(27);
-
-    const INITIAL_REDEMPTION_PRICE = BigNumber.from(3).mul(RAY);
-
-    const amount = BigNumber.from(100).mul(decimals);
+    const INITIAL_REDEMPTION_PRICE = BigNumber.from(3).mul(RAY); // 3$ * 10**27
+    const amount = BigNumber.from(100).pow(10).mul(decimals);
 
     let wallet: SignerWithAddress;
+    let other: SignerWithAddress;
 
     let CoinMockFactory;
     let WrappedCoinFactory;
@@ -33,9 +32,9 @@ describe("WrappedCoin", async function () {
     let wrappedCoin: WrappedCoinTest;
     let oracleRelayerMock: OracleRelayerMock;
     before(async () => {
-        [wallet] = await ethers.getSigners();
+        [wallet, other] = await ethers.getSigners();
         CoinMockFactory = await ethers.getContractFactory("CoinMock");
-        WrappedCoinFactory = await ethers.getContractFactory("WrappedCoin");
+        WrappedCoinFactory = await ethers.getContractFactory("WrappedCoinTest");
         OracleRelayerMockFactory = await ethers.getContractFactory("OracleRelayerMock");
     });
     beforeEach(async function () {
@@ -51,9 +50,6 @@ describe("WrappedCoin", async function () {
             symbol,
             decimals,
         )) as WrappedCoinTest;
-
-        coin.mint(wallet.address, amount);
-        expect(await coin.balanceOf(wallet.address)).to.eq(amount);
     });
 
     it("get correct name,symbol,address and initial redemption price", async () => {
@@ -64,91 +60,72 @@ describe("WrappedCoin", async function () {
         expect(await oracleRelayerMock.getCurrentRedemptionPrice()).to.eq(INITIAL_REDEMPTION_PRICE);
     });
 
+    const mint = async (account, amount) => {
+        await coin.mint(account.address, amount);
+        await coin.connect(account).approve(wrappedCoin.address, amount);
+        await wrappedCoin.mint(account.address, amount);
+    };
+
     it("mint: update internal redemptionPrice", async () => {
+        // transfer coin
+        await coin.mint(wallet.address, amount);
+        expect(await coin.balanceOf(wallet.address)).to.eq(amount);
+
         await oracleRelayerMock.setRedemptionPrice(INITIAL_REDEMPTION_PRICE.div(2));
 
-        await coin.connect(wallet).approve(wrappedCoin.address, 1000);
-        await wrappedCoin.mint(wallet.address, 1000);
-        expect(await wrappedCoin.redemptionPrice()).to.eq(INITIAL_REDEMPTION_PRICE.div(2));
+        // mint and update internal P_redemption
+        await mint(wallet, 1000);
+        expect(await wrappedCoin.getRedemptionPrice()).to.eq(INITIAL_REDEMPTION_PRICE.div(2));
     });
 
-    it("mint: coin balance", async () => {
-        await coin.connect(wallet).approve(wrappedCoin.address, amount);
-        await wrappedCoin.mint(wallet.address, amount);
+    const amountTest = async exp => {
+        it(`mint: increase minter and protocol balances amount 10**${exp}`, async () => {
+            const amount = BigNumber.from(10).pow(exp);
+            await mint(wallet, amount);
+            const redemptionPrice = await oracleRelayerMock.getCurrentRedemptionPrice();
 
-        expect(await wrappedCoin.balanceOfUnderlying(wallet.address)).to.eq(amount);
-        expect(await wrappedCoin.totalSupplyUnderlying()).to.eq(amount);
-        const redemptionPrice = await oracleRelayerMock.getCurrentRedemptionPrice();
-        expect(await wrappedCoin.balanceOf(wallet.address)).to.eq(amount.mul(redemptionPrice).div(RAY));
-    });
+            expect(await wrappedCoin.balanceOfUnderlying(wallet.address)).to.eq(amount);
+            expect(await wrappedCoin.totalSupplyUnderlying()).to.eq(amount);
+            // wrapped coin balance = deposited balance * redemptionPrice
+            expect(await wrappedCoin.balanceOf(wallet.address)).to.eq(amount.mul(redemptionPrice).div(RAY));
+            expect(await wrappedCoin.totalSupply()).to.eq(amount.mul(redemptionPrice).div(RAY));
+        });
+    };
+
+    const exponents = [2, 5, 27, 33];
+    exponents.forEach(amountTest);
+
+    const balanceTest = async denominators => {
+        it(`balanceOf: balance depends on redemptionPrice - ${(10 / denominators).toFixed(2)}$ `, async () => {
+            await coin.mint(wallet.address, amount);
+            await coin.approve(wrappedCoin.address, amount);
+
+            const redemptionPrice = toWei("1").div(BigNumber.from(denominators)).mul(RAY).div(toWei("1"));
+            await oracleRelayerMock.setRedemptionPrice(redemptionPrice);
+
+            await coin.connect(wallet).approve(wrappedCoin.address, amount);
+            await wrappedCoin.mint(wallet.address, amount);
+            expect(await wrappedCoin.balanceOf(wallet.address)).to.eq(amount.mul(redemptionPrice).div(RAY));
+        });
+    };
+
+    const denominators = [2, 3, 6, 9, 12];
+    denominators.forEach(balanceTest);
+
+    const transferTest = async exp => {
+        it(`transfer: transfer from wallet to other - amount 10**${exp}`, async () => {
+            const amount = BigNumber.from(10).pow(exp);
+            await mint(wallet, amount);
+            expect(await wrappedCoin.balanceOfUnderlying(wallet.address)).to.eq(amount);
+
+            const withdrawAmount = amount.mul(await oracleRelayerMock.getCurrentRedemptionPrice()).div(RAY);
+            // transfer external balances `amount` to other address
+            await wrappedCoin.connect(wallet).transfer(other.address, withdrawAmount);
+
+            expect(await wrappedCoin.balanceOf(wallet.address)).to.eq(0);
+            expect(await wrappedCoin.balanceOf(other.address)).to.eq(withdrawAmount);
+        });
+    };
+
+    exponents.forEach(transferTest);
 });
-
-// it("invest: forge can invest assets to idleWBTC", async () => {
-//     await coin.connect(wallet).approve(wrappedCoin.address, amount);
-//     await wrappedCoin.mint(wallet.address, amount);
-
-//     expect(await wrappedCoin.balanceOfUnderlying(wallet.address)).to.eq(amount);
-//     expect(await wrappedCoin.balanceOf(wallet.address)).to.eq(amount);
-// });
-
-// it("redeemUnderlying: redeem deposited asset", async () => {
-//     expect(await idleModel.underlyingBalanceWithInvestment()).to.eq(0);
-//     const signer = ethers.provider.getSigner(signerAddr);
-//     await invest(signer, amount);
-//     await idleModel.redeemUnderlying(amount, idleModel.address);
-//     const fee = amount.div(100); // idle fi withdraw fee 10% ??
-//     expect(await wBTC.balanceOf(idleModel.address)).to.be.gt(amount.sub(fee));
-// });
-
-// it("withdrawTo:only forge can withdraw", async () => {
-//     await expect(idleModel.withdrawTo(amount, forge.address)).to.be.revertedWith("MODEL : Only Forge");
-// });
-
-// it("withdrawTo:when enough amount in model", async () => {
-//     const amountToWithdraw = amount.div(10);
-//     const signer = ethers.provider.getSigner(signerAddr);
-//     await wBTC.connect(signer).transfer(idleModel.address, amount);
-//     const forgeSigner = ethers.provider.getSigner(forge.address);
-//     await idleModel.connect(forgeSigner).withdrawTo(amountToWithdraw, wallet.address);
-//     expect(await wBTC.balanceOf(wallet.address)).to.be.eq(amountToWithdraw);
-//     expect(await wBTC.balanceOf(idleModel.address)).to.be.eq(amount.sub(amountToWithdraw));
-// });
-
-// it("withdrawTo: when not enough amount in model", async () => {
-//     const amountToInvest = amount.div(10);
-//     const balanceInModel = amount.sub(amountToInvest);
-//     const signer = ethers.provider.getSigner(signerAddr);
-//     await invest(signer, amountToInvest);
-//     await wBTC.connect(signer).transfer(idleModel.address, balanceInModel);
-
-//     const forgeSigner = ethers.provider.getSigner(forge.address);
-//     await idleModel.connect(forgeSigner).withdrawTo(amount, wallet.address);
-//     // should be one of them because of rounding of solidity calculations
-//     expect(await wBTC.balanceOf(wallet.address)).to.satisfy((balance: BigNumber) => {
-//         return balance.eq(amount) || balance.eq(amount.sub(1));
-//     });
-// });
-
-// it("claimGovToken: can claim IDLE", async () => {
-//     const signer = ethers.provider.getSigner(signerAddr);
-//     await invest(signer, amount);
-//     await idleModel.claimGovToken();
-//     expect(await idle.balanceOf(idleModel.address)).not.to.eq(0);
-// });
-
-// it("swapGovTokenToUnderlying:swap IDLE to WBTC via UniswapV2", async () => {
-//     const idleAmount = toWei("10");
-//     await ethers.provider.send("hardhat_impersonateAccount", [idleHolderAddr]);
-//     const holder = ethers.provider.getSigner(idleHolderAddr);
-
-//     // see https://uniswap.org/docs/v2/smart-contracts/library#getamountsout
-//     const path = [idle.address, WETH9_ADDRESS, WBTC_ADDRESS];
-//     const expectedAmountsOut = await uniswapV2Router.getAmountsOut(idleAmount, path);
-//     expect(expectedAmountsOut[2]).to.be.gt(0);
-
-//     await idle.connect(holder).transfer(idleModel.address, idleAmount);
-//     await idleModel.swapGovTokenToUnderlying();
-
-//     expect(await idle.balanceOf(idleModel.address)).to.eq(0);
-//     expect(await wBTC.balanceOf(idleModel.address)).to.eq(expectedAmountsOut[2]);
-// });
