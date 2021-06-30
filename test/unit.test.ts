@@ -3,7 +3,7 @@ import { expect, use } from "chai";
 import { Contract } from "@ethersproject/contracts";
 import { BigNumber } from "@ethersproject/bignumber";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { CoinMock, WrappedCoin, OracleRelayerMock } from "../typechain";
+import { CoinMock, WrappedCoinTest, OracleRelayerMock } from "../typechain";
 
 const toWei = ethers.utils.parseEther;
 use(require("chai-bignumber")());
@@ -22,7 +22,7 @@ describe("WrappedCoin", async function () {
 
     const INITIAL_REDEMPTION_PRICE = BigNumber.from(3).mul(RAY);
 
-    const amount = BigNumber.from(10).mul(decimals);
+    const amount = BigNumber.from(100).mul(decimals);
 
     let wallet: SignerWithAddress;
 
@@ -30,7 +30,7 @@ describe("WrappedCoin", async function () {
     let WrappedCoinFactory;
     let OracleRelayerMockFactory;
     let coin: CoinMock;
-    let wrappedCoin: WrappedCoin;
+    let wrappedCoin: WrappedCoinTest;
     let oracleRelayerMock: OracleRelayerMock;
     before(async () => {
         [wallet] = await ethers.getSigners();
@@ -50,36 +50,36 @@ describe("WrappedCoin", async function () {
             name,
             symbol,
             decimals,
-        )) as WrappedCoin;
+        )) as WrappedCoinTest;
 
         coin.mint(wallet.address, amount);
         expect(await coin.balanceOf(wallet.address)).to.eq(amount);
     });
 
-    it("get correct name,symbol,address", async () => {
+    it("get correct name,symbol,address and initial redemption price", async () => {
         expect(await wrappedCoin.name()).to.eq(name);
         expect(await wrappedCoin.symbol()).to.eq(symbol);
         expect(await wrappedCoin.RAI()).to.eq(coin.address);
         expect(await wrappedCoin.oracleRelayer()).to.eq(oracleRelayerMock.address);
+        expect(await oracleRelayerMock.getCurrentRedemptionPrice()).to.eq(INITIAL_REDEMPTION_PRICE);
     });
 
     it("mint: update internal redemptionPrice", async () => {
-        expect(await oracleRelayerMock.redemptionPrice()).to.eq(INITIAL_REDEMPTION_PRICE);
         await oracleRelayerMock.setRedemptionPrice(INITIAL_REDEMPTION_PRICE.div(2));
 
         await coin.connect(wallet).approve(wrappedCoin.address, 1000);
         await wrappedCoin.mint(wallet.address, 1000);
-        expect(await coin.redemptionPrice()).to.eq(INITIAL_REDEMPTION_PRICE);
+        expect(await wrappedCoin.redemptionPrice()).to.eq(INITIAL_REDEMPTION_PRICE.div(2));
     });
 
-    it("mint", async () => {
+    it("mint: coin balance", async () => {
         await coin.connect(wallet).approve(wrappedCoin.address, amount);
         await wrappedCoin.mint(wallet.address, amount);
 
         expect(await wrappedCoin.balanceOfUnderlying(wallet.address)).to.eq(amount);
         expect(await wrappedCoin.totalSupplyUnderlying()).to.eq(amount);
-
-        expect(await wrappedCoin.balanceOf(wallet.address)).to.eq(amount);
+        const redemptionPrice = await oracleRelayerMock.getCurrentRedemptionPrice();
+        expect(await wrappedCoin.balanceOf(wallet.address)).to.eq(amount.mul(redemptionPrice).div(RAY));
     });
 });
 

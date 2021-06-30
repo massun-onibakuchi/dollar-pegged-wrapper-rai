@@ -6,7 +6,9 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./interfaces/IOracleRelayer.sol";
 
-contract WrappedCoin2 is ERC20 {
+import "hardhat/console.sol";
+
+contract WrappedCoin is ERC20 {
     using SafeMath for uint256;
 
     uint256 public constant RAY = 1e27;
@@ -34,23 +36,25 @@ contract WrappedCoin2 is ERC20 {
         _setupDecimals(_decimals);
     }
 
-    function mint(address account, uint256 underlyingAmount) public updateRedemptionPrice() {
+    function mint(address account, uint256 underlyingAmount) public updateRedemptionPrice() returns (uint256) {
         RAI.transferFrom(msg.sender, address(this), underlyingAmount);
         _mint(account, underlyingAmount);
+        return underlyingAmount.mul(_redemptionPrice).div(RAY);
     }
 
-    function burn(address account, uint256 amount) public updateRedemptionPrice() {
-        uint256 underlyingAmount = amount.div(_redemptionPrice);
+    function burn(address account, uint256 amount) public updateRedemptionPrice() returns (uint256) {
+        uint256 underlyingAmount = amount.mul(RAY).div(_redemptionPrice);
         _burn(account, underlyingAmount);
         RAI.transfer(account, underlyingAmount);
+        return underlyingAmount;
     }
 
     function balanceOf(address account) public view override returns (uint256) {
-        return super.balanceOf(account).mul(_redemptionPrice);
+        return super.balanceOf(account).mul(_redemptionPrice).div(RAY);
     }
 
     function totalSupply() public view override returns (uint256) {
-        return super.totalSupply().mul(_redemptionPrice);
+        return super.totalSupply().mul(_redemptionPrice).div(RAY);
     }
 
     function balanceOfUnderlying(address account) public view returns (uint256) {
@@ -68,9 +72,13 @@ contract WrappedCoin2 is ERC20 {
         address spender,
         address recipient,
         uint256 amount
-    ) internal override updateRedemptionPrice() {
-        uint256 underlyingAmount = amount.div(_redemptionPrice);
+    ) internal virtual override updateRedemptionPrice() {
+        uint256 underlyingAmount = amount.mul(RAY).div(_redemptionPrice);
         super._transfer(spender, recipient, underlyingAmount);
+
+        console.log("underlyingAmount :>>", underlyingAmount);
+        console.log("balanceOfUnderlying(spender) :>>", balanceOfUnderlying(spender));
+        console.log("balanceOfUnderlying(recipient) :>>", balanceOfUnderlying(recipient));
     }
 
     modifier updateRedemptionPrice() {

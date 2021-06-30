@@ -22,4 +22,8 @@ contract OracleRelayerMock is IOracleRelayer {
         _redemptionPrice = redemptionPrice_;
         return _redemptionPrice;
     }
+
+    function getCurrentRedemptionPrice() public view returns (uint256) {
+        return _redemptionPrice;
+    }
 }
