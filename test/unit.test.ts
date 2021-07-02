@@ -94,7 +94,7 @@ describe("WrappedCoin", async function () {
     });
 
     const burnTest = async exp => {
-        it(`mint: increase minter and protocol balances amount 10**${exp}`, async () => {
+        it(`burn: increase minter and protocol balances amount 10**${exp}`, async () => {
             const amount = BigNumber.from(10).pow(exp);
             await mint(wallet, amount);
             const redemptionPrice = await oracleRelayerMock.getCurrentRedemptionPrice();
