@@ -12,7 +12,7 @@ const RINKEBY_ALCHEMY_API_KEY = process.env.RINKEBY_ALCHEMY_API_KEY;
 const ROPSTEN_ALCHEMY_API_KEY = process.env.ROPSTEN_ALCHEMY_API_KEY;
 const KOVAN_ALCHEMY_API_KEY = process.env.KOVAN_ALCHEMY_API_KEY;
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
-const BLOCK_NUMBER = process.env.BLOCK_NUMBER || (process.env.BLOCK_NUMBER = "12068744");
+const BLOCK_NUMBER = process.env.BLOCK_NUMBER || (process.env.BLOCK_NUMBER = "12746591");
 const PROJECT_ID = process.env.PROJECT_ID;
 const MNEMONIC = process.env.MNEMONIC;
 
