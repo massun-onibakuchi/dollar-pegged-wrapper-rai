@@ -30,9 +30,9 @@ contract WrappedCoin is ERC20 {
         RAI = _RAI;
         oracleRelayer = _oracleRelayer;
 
-        require(_oracleRelayer.contractEnabled() == 1, "oracle-relayer-disabled");
+        require(_oracleRelayer.contractEnabled() == 1, "wrapped-coin/oracle-relayer-disabled");
         _redemptionPrice = _oracleRelayer.redemptionPrice();
-
+        require(_redemptionPrice > 0,"wrapped-coin/initial-redemption-price-zero");
         _setupDecimals(_decimals);
     }
 
@@ -75,10 +75,6 @@ contract WrappedCoin is ERC20 {
     ) internal virtual override updateRedemptionPrice() {
         uint256 underlyingAmount = amount.mul(RAY).div(_redemptionPrice);
         super._transfer(spender, recipient, underlyingAmount);
-
-        console.log("underlyingAmount :>>", underlyingAmount);
-        console.log("balanceOfUnderlying(spender) :>>", balanceOfUnderlying(spender));
-        console.log("balanceOfUnderlying(recipient) :>>", balanceOfUnderlying(recipient));
     }
 
     modifier updateRedemptionPrice() {
