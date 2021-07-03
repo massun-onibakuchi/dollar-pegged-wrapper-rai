@@ -57,7 +57,7 @@ describe("WrappedCoin", async function () {
     const mint = async (account, amount) => {
         await coin.mint(account.address, amount);
         await coin.connect(account).approve(wrappedCoin.address, amount);
-        await wrappedCoin.mint(account.address, amount);
+        return await wrappedCoin.mint(account.address, amount);
     };
 
     it("mint: update internal redemptionPrice", async () => {
@@ -65,6 +65,12 @@ describe("WrappedCoin", async function () {
         // mint and update internal P_redemption
         await mint(wallet, 1000);
         expect(await wrappedCoin.getRedemptionPrice()).to.eq(INITIAL_REDEMPTION_PRICE.div(2));
+    });
+
+    it("mint: emit Mint event", async () => {
+        await expect(mint(wallet, toWei("1")))
+            .to.emit(wrappedCoin, "Mint")
+            .withArgs(wallet.address, toWei("1").mul(INITIAL_REDEMPTION_PRICE).div(RAY), toWei("1"));
     });
 
     const mintTest = async exp => {
@@ -93,6 +99,13 @@ describe("WrappedCoin", async function () {
         expect(await wrappedCoin.getRedemptionPrice()).to.eq(INITIAL_REDEMPTION_PRICE.div(2));
     });
 
+    it("burn: emit Burn event", async () => {
+        await mint(wallet, amount);
+        await expect(wrappedCoin.burn(wallet.address, toWei("1")))
+            .to.emit(wrappedCoin, "Burn")
+            .withArgs(wallet.address, toWei("1"), toWei("1").mul(RAY).div(INITIAL_REDEMPTION_PRICE));
+    });
+
     const burnTest = async exp => {
         it(`burn: increase minter and protocol balances amount 10**${exp}`, async () => {
             const amount = BigNumber.from(10).pow(exp);
@@ -114,7 +127,6 @@ describe("WrappedCoin", async function () {
     const balanceTest = async denominator => {
         it(`balanceOf: balance depends on redemptionPrice - ${(10 / denominator).toFixed(2)}$ `, async () => {
             await coin.mint(wallet.address, amount);
-            await coin.approve(wrappedCoin.address, amount);
 
             // P_redemption = 10**18 / denominator * 10**27 / 10**18
             const redemptionPrice = toWei("1").div(BigNumber.from(denominator)).mul(RAY).div(toWei("1"));
