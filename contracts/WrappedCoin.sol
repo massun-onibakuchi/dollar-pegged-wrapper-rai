@@ -4,11 +4,33 @@ pragma solidity ^0.7.6;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
+
 import "./interfaces/IOracleRelayer.sol";
 
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
+/**
+ * This is a ERC20 token, whcih wrapps Rai Reflexer index (RAI).
+ * WrappedRAI is a mintable and burnable ERC20 token, but its supply can be adjusted
+ * according to RAI redemption price.
+ * WrappedRAI balances are internally represented with RAI denomination.
+ * WrappedRAI recalulates rebases by updating RAI redemption price when its mint or burn function is called.
+ * Redemption price represents the conversion rate,which means the amount of WrappedRAI per RAI
+ */
 contract WrappedCoin is ERC20 {
+    // - WrappedRAI inherits Openzeppelin ERC20. Mapping of address to RAI balances,
+    //      but `allowances` is denominated in WrappedRAI
+    //      because the wrappedRAI-RAI conversion might change before it's fully paid.
+    //     `mapping(address => uint256) private _balances // denominated in RAI balances`
+    //     `mapping (address => mapping (address => uint256)) private _allowances; // denominated in WrappedRAI`
+    // - The sum of all balances is not guaranteed to be the same as the result of calling totalSupply().
+    // - External balance might not be precisely increased by x even if x amounts are transfered by `transfer()`
+    //      This is because, for any conversion has non-zero rounding error,
+    // - Internal balance is precisely increased by y if y underlying amounts are transfered.
+    //      If address 'A' transfers x amounts to address 'B'. A's resulting internal balance will
+    //      be decreased by precisely y underlying amounts, and B's internal balance will be precisely
+    //      increased by y underlying amounts, where x = y * redemptionPrice
+
     using SafeMath for uint256;
 
     string public constant EIP712_REVISION = "1";
@@ -21,7 +43,8 @@ contract WrappedCoin is ERC20 {
 
     uint256 public constant RAY = 1e27;
 
-    /// @dev Rai redemption price (not the most updated value),which means amount of wrapped coin per RAI.
+    /// @dev Rai redemption price (not the most updated value)
+    /// The conversion rate, which means amount of wrapped coin per RAI.
     uint256 internal _redemptionPrice;
 
     /// @dev ref to RAI (underlying token)
@@ -69,7 +92,7 @@ contract WrappedCoin is ERC20 {
 
     /**
      * @dev mint tokens to a specified address.
-     * @param account the address to transfer to
+     * @param account the address to transfer WrappedCoin to
      * @param underlyingAmount the amount of underlying token (RAI)
      * @return amount the amount of wrapped token to be minted
      */
@@ -83,7 +106,7 @@ contract WrappedCoin is ERC20 {
 
     /**
      * @dev burn tokens and transfer underlying to a specified address
-     * @param account the address to transfer to
+     * @param account the address to transfer RAI to
      * @param amount the amount of wrapped token to be burned
      * @return underlyingAmount the amount of underlying token to be transferred
      */
@@ -188,9 +211,6 @@ contract WrappedCoin is ERC20 {
         uint256 amount
     ) internal virtual override {
         uint256 underlyingAmount = amount.mul(RAY).div(_redemptionPrice);
-        // console.log("# amount :>>", amount);
-        // console.log("# underlyingAMount :>>", underlyingAmount);
-        // console.log("# balanceOfUnderlying(spender) :>>", balanceOfUnderlying(spender));
         super._transfer(spender, recipient, underlyingAmount);
     }
 
