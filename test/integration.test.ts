@@ -124,7 +124,7 @@ describe("WrappedCoin", async function () {
         });
     };
 
-    const exponents = [0, 2, 5, 18, 21];
+    const exponents = [0, 2, 21];
     exponents.forEach(mintTest);
 
     it("burn: update internal redemptionPrice", async () => {
