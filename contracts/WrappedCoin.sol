@@ -2,9 +2,9 @@
 pragma solidity ^0.7.6;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
+import "./ERC20Permit.sol";
 import "./interfaces/IOracleRelayer.sol";
 
 // import "hardhat/console.sol";
@@ -17,7 +17,7 @@ import "./interfaces/IOracleRelayer.sol";
  * WrappedRAI recalulates rebases by updating RAI redemption price when its mint or burn function is called.
  * Redemption price represents the conversion rate,which means the amount of WrappedRAI per RAI
  */
-contract WrappedCoin is ERC20 {
+contract WrappedCoin is ERC20Permit {
     // - WrappedRAI inherits Openzeppelin ERC20. Mapping of address to RAI balances,
     //      but `allowances` is denominated in WrappedRAI
     //      because the wrappedRAI-RAI conversion might change before it's fully paid.
@@ -32,14 +32,6 @@ contract WrappedCoin is ERC20 {
     //      increased by y underlying amounts, where x = y * redemptionPrice
 
     using SafeMath for uint256;
-
-    string public constant EIP712_REVISION = "1";
-    bytes32 public constant EIP712_DOMAIN =
-        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
-    bytes32 public constant PERMIT_TYPEHASH =
-        keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
-
-    mapping(address => uint256) public nonces;
 
     uint256 public constant RAY = 1e27;
 
@@ -63,7 +55,7 @@ contract WrappedCoin is ERC20 {
         string memory _name,
         string memory _symbol,
         uint8 _decimals
-    ) ERC20(_name, _symbol) {
+    ) ERC20Permit(_name, _symbol) {
         RAI = _RAI;
         oracleRelayer = _oracleRelayer;
 
@@ -72,28 +64,6 @@ contract WrappedCoin is ERC20 {
         require(_redemptionPrice > 0, "wrapped-coin/initial-redemption-price-zero");
 
         _setupDecimals(_decimals);
-    }
-
-    /**
-     * @return The computed DOMAIN_SEPARATOR to be used off-chain services
-     *         which implement EIP-712.
-     *         https://eips.ethereum.org/EIPS/eip-2612
-     */
-    function DOMAIN_SEPARATOR() public view returns (bytes32) {
-        uint256 chainId;
-        assembly {
-            chainId := chainid()
-        }
-        return
-            keccak256(
-                abi.encode(
-                    EIP712_DOMAIN,
-                    keccak256(bytes(name())),
-                    keccak256(bytes(EIP712_REVISION)),
-                    chainId,
-                    address(this)
-                )
-            );
     }
 
     /**
@@ -173,38 +143,6 @@ contract WrappedCoin is ERC20 {
         uint256 underlyingAmount = balanceOfUnderlying(spender);
         super._transfer(spender, recipient, underlyingAmount);
         return true;
-    }
-
-    /**
-     * @dev Allows for approvals to be made via secp256k1 signatures.
-     * @param owner The owner of the funds
-     * @param spender The spender
-     * @param value The amount
-     * @param deadline The deadline timestamp, type(uint256).max for max deadline
-     * @param v Signature param
-     * @param s Signature param
-     * @param r Signature param
-     */
-    function permit(
-        address owner,
-        address spender,
-        uint256 value,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external {
-        require(deadline >= block.timestamp, "wrapped-coin/expired-transaction");
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                DOMAIN_SEPARATOR(),
-                keccak256(abi.encode(PERMIT_TYPEHASH, owner, spender, value, nonces[owner]++, deadline))
-            )
-        );
-        address recoveredAddress = ecrecover(digest, v, r, s);
-        require(recoveredAddress != address(0) && recoveredAddress == owner, "wrapped-coin/invalid-signature");
-        _approve(owner, spender, value);
     }
 
     /**
