@@ -25,7 +25,7 @@ contract WrappedCoin is ERC20 {
     //     `mapping (address => mapping (address => uint256)) private _allowances; // denominated in WrappedRAI`
     // - The sum of all balances is not guaranteed to be the same as the result of calling totalSupply().
     // - External balance might not be precisely increased by x even if x amounts are transfered by `transfer()`
-    //      This is because, for any conversion has non-zero rounding error,
+    //      This is because any conversion has non-zero rounding error,
     // - Internal balance is precisely increased by y if y underlying amounts are transfered.
     //      If address 'A' transfers x amounts to address 'B'. A's resulting internal balance will
     //      be decreased by precisely y underlying amounts, and B's internal balance will be precisely
@@ -86,7 +86,13 @@ contract WrappedCoin is ERC20 {
         }
         return
             keccak256(
-                abi.encode(EIP712_DOMAIN, keccak256(bytes(name())), keccak256(bytes("1")), chainId, address(this))
+                abi.encode(
+                    EIP712_DOMAIN,
+                    keccak256(bytes(name())),
+                    keccak256(bytes(EIP712_REVISION)),
+                    chainId,
+                    address(this)
+                )
             );
     }
 
