@@ -20,6 +20,9 @@ contract WrappedCoin is ERC20 {
     IERC20 public immutable RAI; //solhint-disable var-name-mixedcase
     IOracleRelayer public immutable oracleRelayer;
 
+    event Mint(address indexed account, uint256 wrappedCoinAmount, uint256 underlyingAmount);
+    event Burn(address indexed account, uint256 wrappedCoinAmount, uint256 underlyingAmount);
+
     constructor(
         IERC20 _RAI,
         IOracleRelayer _oracleRelayer,
@@ -32,21 +35,33 @@ contract WrappedCoin is ERC20 {
 
         require(_oracleRelayer.contractEnabled() == 1, "wrapped-coin/oracle-relayer-disabled");
         _redemptionPrice = _oracleRelayer.redemptionPrice();
-        require(_redemptionPrice > 0,"wrapped-coin/initial-redemption-price-zero");
+        require(_redemptionPrice > 0, "wrapped-coin/initial-redemption-price-zero");
         _setupDecimals(_decimals);
     }
 
-    function mint(address account, uint256 underlyingAmount) public updateRedemptionPrice() returns (uint256) {
+    function mint(address account, uint256 underlyingAmount) public returns (uint256 amount) {
+        _updateRedemptionPrice();
         RAI.transferFrom(msg.sender, address(this), underlyingAmount);
         _mint(account, underlyingAmount);
-        return underlyingAmount.mul(_redemptionPrice).div(RAY);
+        amount = underlyingAmount.mul(_redemptionPrice).div(RAY);
+        emit Mint(account, amount, underlyingAmount);
     }
 
-    function burn(address account, uint256 amount) public updateRedemptionPrice() returns (uint256) {
-        uint256 underlyingAmount = amount.mul(RAY).div(_redemptionPrice);
+    function burn(address account, uint256 amount) public returns (uint256 underlyingAmount) {
+        underlyingAmount = amount.mul(RAY).div(_redemptionPrice);
         _burn(account, underlyingAmount);
+        _updateRedemptionPrice();
         RAI.transfer(account, underlyingAmount);
-        return underlyingAmount;
+        emit Burn(account, amount, underlyingAmount);
+    }
+
+    function burnAll(address account) public returns (uint256 underlyingAmount) {
+        uint256 redemptionPrice_ = _redemptionPrice;
+        underlyingAmount = balanceOfUnderlying(msg.sender);
+        _burn(account, underlyingAmount);
+        _updateRedemptionPrice();
+        RAI.transfer(account, underlyingAmount);
+        emit Burn(account, underlyingAmount.mul(redemptionPrice_).div(RAY), underlyingAmount);
     }
 
     function balanceOf(address account) public view override returns (uint256) {
@@ -63,6 +78,11 @@ contract WrappedCoin is ERC20 {
 
     function totalSupplyUnderlying() public view returns (uint256) {
         return super.totalSupply();
+    }
+
+    function transferAll(address spender, address recipient) public virtual {
+        uint256 underlyingAmount = balanceOfUnderlying(spender);
+        super._transfer(spender, recipient, underlyingAmount);
     }
 
     /**
