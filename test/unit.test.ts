@@ -156,19 +156,6 @@ describe("WrappedCoin", async function () {
             expect(await wrappedCoin.balanceOf(other.address)).to.eq(amountToTransfer);
         });
     };
-    // const transferTest = async exp => {
-    //     it(`transfer: transfer from wallet to other - amount 10**${exp}`, async () => {
-    //         const amount = BigNumber.from(10).pow(exp);
-    //         await mint(wallet, amount);
-    //         expect(await wrappedCoin.balanceOfUnderlying(wallet.address)).to.eq(amount);
-
-    //         const amountToTransfer = amount.mul(await oracleRelayerMock.getCurrentRedemptionPrice()).div(RAY);
-    //         await wrappedCoin.connect(wallet).transfer(other.address, amountToTransfer);
-
-    //         expect(await wrappedCoin.balanceOf(wallet.address)).to.eq(0);
-    //         expect(await wrappedCoin.balanceOf(other.address)).to.eq(amountToTransfer);
-    //     });
-    // };
 
     exponents.forEach(transferTest);
 
