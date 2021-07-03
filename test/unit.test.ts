@@ -14,7 +14,7 @@ describe("WrappedCoin", async function () {
     const decimals = 18;
     const RAY = BigNumber.from(10).pow(27);
     const INITIAL_REDEMPTION_PRICE = BigNumber.from(3).mul(RAY); // 3$ * 10**27
-    const amount = BigNumber.from(100).pow(10).mul(decimals);
+    const amount = BigNumber.from(10).mul(BigNumber.from(10).pow(decimals));
 
     let wallet: SignerWithAddress;
     let other: SignerWithAddress;
@@ -88,7 +88,7 @@ describe("WrappedCoin", async function () {
         });
     };
 
-    const exponents = [2, 5, 27, 33];
+    const exponents = [0, 2, 5, 27, 35];
     exponents.forEach(mintTest);
 
     it("burn: update internal redemptionPrice", async () => {
@@ -125,7 +125,9 @@ describe("WrappedCoin", async function () {
     exponents.forEach(burnTest);
 
     const balanceTest = async denominator => {
-        it(`balanceOf: balance depends on redemptionPrice - ${(10 / denominator).toFixed(2)}$ `, async () => {
+        it(`balanceOf:The balance is proportional to the redemptionPrice - ${(10 / denominator).toFixed(
+            2,
+        )}$`, async () => {
             await coin.mint(wallet.address, amount);
 
             // P_redemption = 10**18 / denominator * 10**27 / 10**18
@@ -147,14 +149,26 @@ describe("WrappedCoin", async function () {
             await mint(wallet, amount);
             expect(await wrappedCoin.balanceOfUnderlying(wallet.address)).to.eq(amount);
 
-            const withdrawAmount = amount.mul(await oracleRelayerMock.getCurrentRedemptionPrice()).div(RAY);
-            // transfer external balances `amount` to other address
-            await wrappedCoin.connect(wallet).transfer(other.address, withdrawAmount);
+            const amountToTransfer = amount.mul(await oracleRelayerMock.getCurrentRedemptionPrice()).div(RAY);
+            await wrappedCoin.connect(wallet).transfer(other.address, amountToTransfer);
 
             expect(await wrappedCoin.balanceOf(wallet.address)).to.eq(0);
-            expect(await wrappedCoin.balanceOf(other.address)).to.eq(withdrawAmount);
+            expect(await wrappedCoin.balanceOf(other.address)).to.eq(amountToTransfer);
         });
     };
+    // const transferTest = async exp => {
+    //     it(`transfer: transfer from wallet to other - amount 10**${exp}`, async () => {
+    //         const amount = BigNumber.from(10).pow(exp);
+    //         await mint(wallet, amount);
+    //         expect(await wrappedCoin.balanceOfUnderlying(wallet.address)).to.eq(amount);
+
+    //         const amountToTransfer = amount.mul(await oracleRelayerMock.getCurrentRedemptionPrice()).div(RAY);
+    //         await wrappedCoin.connect(wallet).transfer(other.address, amountToTransfer);
+
+    //         expect(await wrappedCoin.balanceOf(wallet.address)).to.eq(0);
+    //         expect(await wrappedCoin.balanceOf(other.address)).to.eq(amountToTransfer);
+    //     });
+    // };
 
     exponents.forEach(transferTest);
 
@@ -162,10 +176,10 @@ describe("WrappedCoin", async function () {
         it(`approve: increase allowance and decrease allowance - amount 10**${exp}`, async () => {
             const amount = BigNumber.from(10).pow(exp);
             await mint(wallet, amount);
-            const approveAmount = amount.mul(await oracleRelayerMock.getCurrentRedemptionPrice()).div(RAY);
+            const amountToApprove = amount.mul(await oracleRelayerMock.getCurrentRedemptionPrice()).div(RAY);
 
-            await wrappedCoin.connect(wallet).approve(other.address, approveAmount);
-            expect(await wrappedCoin.allowance(wallet.address, other.address)).to.eq(approveAmount);
+            await wrappedCoin.connect(wallet).approve(other.address, amountToApprove);
+            expect(await wrappedCoin.allowance(wallet.address, other.address)).to.eq(amountToApprove);
 
             await wrappedCoin.connect(wallet).approve(other.address, 0);
             expect(await wrappedCoin.allowance(wallet.address, other.address)).to.eq(0);
@@ -177,14 +191,14 @@ describe("WrappedCoin", async function () {
         it(`transferFrom: transfer from wallet to other - amount 10**${exp}`, async () => {
             const amount = BigNumber.from(10).pow(exp);
             await mint(wallet, amount);
-            const approveAmount = amount.mul(await oracleRelayerMock.getCurrentRedemptionPrice()).div(RAY);
+            const amountToApprove = amount.mul(await oracleRelayerMock.getCurrentRedemptionPrice()).div(RAY);
 
-            await wrappedCoin.connect(wallet).approve(other.address, approveAmount);
-            await wrappedCoin.connect(other).transferFrom(wallet.address, other.address, approveAmount);
+            await wrappedCoin.connect(wallet).approve(other.address, amountToApprove);
+            await wrappedCoin.connect(other).transferFrom(wallet.address, other.address, amountToApprove);
 
             expect(await wrappedCoin.allowance(wallet.address, other.address)).to.eq(0);
             expect(await wrappedCoin.balanceOf(wallet.address)).to.eq(0);
-            expect(await wrappedCoin.balanceOf(other.address)).to.eq(approveAmount);
+            expect(await wrappedCoin.balanceOf(other.address)).to.eq(amountToApprove);
         });
     };
     exponents.forEach(transferFromTest);
