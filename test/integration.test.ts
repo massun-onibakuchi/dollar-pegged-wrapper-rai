@@ -7,6 +7,7 @@ import { ContractTransaction, Signer } from "ethers/lib/";
 import { WrappedCoinTest, IERC20, IOracleRelayer } from "../typechain";
 
 const toWei = ethers.utils.parseEther;
+const overrides = { gasLimit: 9999999 };
 use(require("chai-bignumber")());
 
 // get contract ABI via Etherscan API
@@ -60,6 +61,7 @@ describe("WrappedCoin", async function () {
             name,
             symbol,
             decimals,
+            overrides,
         )) as WrappedCoinTest;
 
         // refresh redemptionPrice
@@ -95,7 +97,7 @@ describe("WrappedCoin", async function () {
 
     const mint = async (minter: Signer, amount: BigNumberish) => {
         await coin.connect(minter).approve(wrappedCoin.address, amount);
-        return await wrappedCoin.connect(minter).mint(await minter.getAddress(), amount);
+        return await wrappedCoin.connect(minter).mint(await minter.getAddress(), amount, overrides);
     };
 
     it("mint: update internal redemptionPrice", async () => {
@@ -133,21 +135,20 @@ describe("WrappedCoin", async function () {
 
     const burnTest = async exp => {
         it(`burn: increase minter and protocol balances amount 10**${exp}`, async () => {
-            const amount = BigNumber.from(10).pow(exp);
+            const depositAmount = BigNumber.from(10).pow(exp);
             const balanceBefore = await coin.balanceOf(signerAddr);
 
-            const tx = await mint(signer, amount);
-            const redemptionPrice = await getRedemptionPriceFromEvent(oracleRelayer, tx);
-            const burnAmount = amount.mul(redemptionPrice).div(RAY);
-            await wrappedCoin.burn(signerAddr, burnAmount);
+            const mintTx = await mint(signer, depositAmount);
 
-            // expect(await wrappedCoin.balanceOfUnderlying(signerAddr)).to.eq(0);
-            // expect(await wrappedCoin.totalSupplyUnderlying()).to.eq(0);
+            const redemptionPrice = await getRedemptionPriceFromEvent(oracleRelayer, mintTx);
+            const minterBalance = await wrappedCoin.balanceOf(signerAddr);
+            await wrappedCoin.burn(signerAddr, minterBalance);
 
-            // wrapped coin balance = deposited balance * redemptionPrice
-            // expect(await wrappedCoin.balanceOf(signerAddr)).to.eq(0);
-            // expect(await wrappedCoin.totalSupply()).to.eq(0);
-            // expect(await coin.balanceOf(signerAddr)).to.eq(balanceBefore);
+            // underlyingBalanceAfterBurn = depositAmount - underlyingAmountToBurn != 0 because of rounding error
+            const underlyingAmountToBurn = minterBalance.mul(RAY).div(redemptionPrice);
+            const underlyingBalanceAfterBurn = depositAmount.sub(underlyingAmountToBurn);
+            expect(await wrappedCoin.balanceOfUnderlying(signerAddr)).to.eq(underlyingBalanceAfterBurn);
+            expect(await wrappedCoin.totalSupplyUnderlying()).to.eq(underlyingBalanceAfterBurn);
         });
     };
 
