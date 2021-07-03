@@ -87,25 +87,25 @@ describe("WrappedCoin", async function () {
         });
     });
 
-    // it("get correct name,symbol,address and initial redemption price", async () => {
-    //     expect(await wrappedCoin.name()).to.eq(name);
-    //     expect(await wrappedCoin.symbol()).to.eq(symbol);
-    //     expect(await wrappedCoin.RAI()).to.eq(coin.address);
-    //     expect(await wrappedCoin.oracleRelayer()).to.eq(oracleRelayer.address);
-    // });
+    it("get correct name,symbol,address and initial redemption price", async () => {
+        expect(await wrappedCoin.name()).to.eq(name);
+        expect(await wrappedCoin.symbol()).to.eq(symbol);
+        expect(await wrappedCoin.RAI()).to.eq(coin.address);
+        expect(await wrappedCoin.oracleRelayer()).to.eq(oracleRelayer.address);
+    });
 
     const mint = async (minter: Signer, amount: BigNumberish) => {
         await coin.connect(minter).approve(wrappedCoin.address, amount);
         return await wrappedCoin.connect(minter).mint(await minter.getAddress(), amount, overrides);
     };
 
-    // it("mint: update internal redemptionPrice", async () => {
-    //     await coin.connect(signer).approve(wrappedCoin.address, amount);
-    //     await expect(wrappedCoin.connect(signer).mint(signerAddr, amount)).to.emit(
-    //         oracleRelayer,
-    //         "UpdateRedemptionPrice",
-    //     );
-    // });
+    it("mint: update internal redemptionPrice", async () => {
+        await coin.connect(signer).approve(wrappedCoin.address, amount);
+        await expect(wrappedCoin.connect(signer).mint(signerAddr, amount)).to.emit(
+            oracleRelayer,
+            "UpdateRedemptionPrice",
+        );
+    });
 
     const mintTest = async exp => {
         it(`mint: increase minter and protocol balances amount 10**${exp}`, async () => {
@@ -127,10 +127,10 @@ describe("WrappedCoin", async function () {
     const exponents = [0, 2, 5, 18, 21];
     exponents.forEach(mintTest);
 
-    // it("burn: update internal redemptionPrice", async () => {
-    //     await mint(signer, amount);
-    //     await expect(wrappedCoin.burn(signerAddr, 100)).to.emit(oracleRelayer, "UpdateRedemptionPrice");
-    // });
+    it("burn: update internal redemptionPrice", async () => {
+        await mint(signer, amount);
+        await expect(wrappedCoin.burn(signerAddr, 100)).to.emit(oracleRelayer, "UpdateRedemptionPrice");
+    });
 
     const burnTest = async exp => {
         it(`burn: increase minter and protocol balances amount 10**${exp}`, async () => {
@@ -149,7 +149,7 @@ describe("WrappedCoin", async function () {
         });
     };
 
-    // exponents.forEach(burnTest);
+    exponents.forEach(burnTest);
 
     const balanceTest = async denominator => {
         it(`balanceOf: The balance is proportional to the redemptionPrice - ${(10 / denominator).toFixed(
@@ -161,7 +161,7 @@ describe("WrappedCoin", async function () {
     };
 
     const denominators = [2, 3, 6, 9, 12];
-    // denominators.forEach(balanceTest);
+    denominators.forEach(balanceTest);
 
     const transferTest = async exp => {
         it(`transfer: transfer amount 10**${exp} from signer to other`, async () => {
