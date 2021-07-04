@@ -97,8 +97,8 @@ contract WrappedCoin is ERC20Permit {
     function burnAll(address account) public returns (uint256 underlyingAmount) {
         uint256 redemptionPrice_ = _redemptionPrice;
         underlyingAmount = balanceOfUnderlying(msg.sender);
-        _burn(account, underlyingAmount);
         _updateRedemptionPrice();
+        _burn(account, underlyingAmount);
         RAI.transfer(account, underlyingAmount);
         emit Burn(account, underlyingAmount.mul(redemptionPrice_).div(RAY), underlyingAmount);
     }
@@ -146,6 +146,15 @@ contract WrappedCoin is ERC20Permit {
     }
 
     /**
+     * @dev Update redemption price.
+     * @return updated redemption price
+     */
+    function redemptionPrice() external returns (uint256) {
+        _updateRedemptionPrice();
+        return _redemptionPrice;
+    }
+
+    /**
      * @dev called in `transfer**` and `transferFrom**` function.
      * method overrides {_transfer} method
      */
@@ -163,14 +172,5 @@ contract WrappedCoin is ERC20Permit {
      */
     function _updateRedemptionPrice() internal {
         _redemptionPrice = oracleRelayer.redemptionPrice();
-    }
-
-    /**
-     * @dev Update redemption price.
-     * @return updated redemption price
-     */
-    function redemptionPrice() external returns (uint256) {
-        _updateRedemptionPrice();
-        return _redemptionPrice;
     }
 }
