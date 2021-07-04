@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 
 import "./ERC20Permit.sol";
 import "./interfaces/IOracleRelayer.sol";
+import "./libraries/FullMath.sol";
 
 // import "hardhat/console.sol";
 
@@ -76,7 +77,7 @@ contract WrappedCoin is ERC20Permit {
         _updateRedemptionPrice();
         RAI.transferFrom(msg.sender, address(this), underlyingAmount);
         _mint(account, underlyingAmount);
-        amount = underlyingAmount.mul(_redemptionPrice).div(RAY);
+        amount = FullMath.mulDiv(underlyingAmount, _redemptionPrice, RAY);
         emit Mint(account, amount, underlyingAmount);
     }
 
@@ -87,7 +88,7 @@ contract WrappedCoin is ERC20Permit {
      * @return underlyingAmount the amount of underlying token to be transferred
      */
     function burn(address account, uint256 amount) public returns (uint256 underlyingAmount) {
-        underlyingAmount = amount.mul(RAY).div(_redemptionPrice);
+        underlyingAmount = FullMath.mulDiv(amount, RAY, _redemptionPrice);
         _updateRedemptionPrice();
         _burn(account, underlyingAmount);
         RAI.transfer(account, underlyingAmount);
@@ -100,7 +101,7 @@ contract WrappedCoin is ERC20Permit {
         _updateRedemptionPrice();
         _burn(account, underlyingAmount);
         RAI.transfer(account, underlyingAmount);
-        emit Burn(account, underlyingAmount.mul(redemptionPrice_).div(RAY), underlyingAmount);
+        emit Burn(account, FullMath.mulDiv(underlyingAmount, redemptionPrice_, RAY), underlyingAmount);
     }
 
     /**
@@ -108,14 +109,14 @@ contract WrappedCoin is ERC20Permit {
      * @return The balance of the specified address.
      */
     function balanceOf(address account) public view override returns (uint256) {
-        return super.balanceOf(account).mul(_redemptionPrice).div(RAY);
+        return FullMath.mulDiv(super.balanceOf(account), _redemptionPrice, RAY);
     }
 
     /**
      * @return total amounts of tokens.
      */
     function totalSupply() public view override returns (uint256) {
-        return super.totalSupply().mul(_redemptionPrice).div(RAY);
+        return FullMath.mulDiv(super.totalSupply(), _redemptionPrice, RAY);
     }
 
     /**
@@ -163,7 +164,7 @@ contract WrappedCoin is ERC20Permit {
         address recipient,
         uint256 amount
     ) internal virtual override {
-        uint256 underlyingAmount = amount.mul(RAY).div(_redemptionPrice);
+        uint256 underlyingAmount = FullMath.mulDiv(amount, RAY, _redemptionPrice);
         super._transfer(spender, recipient, underlyingAmount);
     }
 
