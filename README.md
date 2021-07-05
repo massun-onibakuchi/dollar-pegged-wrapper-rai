@@ -25,7 +25,7 @@ The function `transfer()` and `transferFrom()` can't presisely transfer external
 
 #### Example
 
-If a sender initial internal RAI balance is 100 RAI `amountToTransfer = 100` `redemptionPrice = 3.0`, then `underlyingToTransfer = 33` (= 100/3 = 33.3.. )
+If a sender initial internal RAI balance is 100 `amountToTransfer = 100` `redemptionPrice = 3.0`, then `underlyingToTransfer = 33` (= 100/3 = 33.3.. )
 
 |            | sender | recipient |
 |:----------:|:----------:|:-----------:|
@@ -35,7 +35,7 @@ If a sender initial internal RAI balance is 100 RAI `amountToTransfer = 100` `re
 
 The number in parentheses ( ) indicates the internal balance.
 
-If a sender initial internal RAI balance is 100 RAI `amountToTransfer = 100` `redemptionPrice = 3.04`, then `underlyingToTransfer = 32` (= 100/3.04 = 32.8..)
+If a sender initial internal RAI balance is 100 `amountToTransfer = 100` `redemptionPrice = 3.04`, then `underlyingToTransfer = 32` (= 100/3.04 = 32.8..)
 
 |            | sender | recipient |
 |:----------:|:----------:|:-----------:|
@@ -43,8 +43,10 @@ If a sender initial internal RAI balance is 100 RAI `amountToTransfer = 100` `re
 | After transfer  | 206 (68)   | 97  (32)   |
 | Difference in balance  | -98 (-32)   | +97 (+32)  |
 
+There will be rounding errors in the calculation to convert between external and internal balances, but they should be negligible unless you send a much smaller amount than, say, 0.01$.
+
 ### Internal balance might become untransferable
-The function `transfer()` and  `transferFrom()` takes values to transfer and compute the corresponding internal values. If amounts to transfer are too small, or redemption price becomes larger enough, small amounts can become untransferable. but WrappedRAI implements some function `**All()` such as `burnAll()`.
+The function `transfer()` and  `transferFrom()` takes values to transfer and compute the corresponding internal values. If amounts to transfer are too small, or redemption price becomes larger enough, small amounts can become untransferable. Realistically, we could ignore the possibility of internal balance becoming untransferable. And WrappedRAI implements some function `**All()` such as `burnAll()`.
 
 ### Oracle/Front-Running
 The rebase mechanism depends on `OracleRelayer`'s redemption price.
