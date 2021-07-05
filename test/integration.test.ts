@@ -148,7 +148,6 @@ describe("WrappedCoin", async function () {
             expect(await wrappedCoin.totalSupplyUnderlying()).to.eq(underlyingBalanceAfterBurn);
         });
     };
-
     exponents.forEach(burnTest);
 
     const balanceTest = async denominator => {
@@ -164,7 +163,7 @@ describe("WrappedCoin", async function () {
     denominators.forEach(balanceTest);
 
     const transferTest = async exp => {
-        it(`transfer: transfer amount 10**${exp} from signer to other`, async () => {
+        it(`transfer: amount 10**${exp} - Internal balance should change precisely`, async () => {
             const tx = await mint(signer, amount);
             const redemptionPrice = await getRedemptionPriceFromEvent(oracleRelayer, tx);
             const amountToTransfer = BigNumber.from(10).pow(exp);
@@ -178,14 +177,41 @@ describe("WrappedCoin", async function () {
 
             expect(signerBalance.add(otherBalance)).to.eq(amount); // The sum of the two account internal balances should remain the same.
 
-            //  in some case, total supply and external balances diff does't remain the same.
-
             // Internal balance
             expect(amount.sub(underlyingToTransfer)).to.eq(signerBalance);
             expect(underlyingToTransfer).to.eq(otherBalance);
         });
     };
     exponents.forEach(transferTest);
+
+    const transferPrecisionTest = async exp => {
+        it(`transfer: 10**${exp} - Rounding error should be less than or equal to redemptionPrice`, async () => {
+            const amountToTransfer = BigNumber.from(10).pow(exp);
+            const tx = await mint(signer, amount);
+            const redemptionPrice = await getRedemptionPriceFromEvent(oracleRelayer, tx);
+            const balanceBefore = await wrappedCoin.balanceOf(signerAddr);
+            expect(await wrappedCoin.balanceOfUnderlying(signerAddr)).to.eq(amount);
+
+            await wrappedCoin.connect(signer).transfer(other.address, amountToTransfer);
+
+            const signerBalDiff = balanceBefore.sub(await wrappedCoin.balanceOf(signerAddr));
+
+            // amountToTransfer >= signer balance diff >= amountToTransfer - redemptionPrice + 1
+            expect(amountToTransfer).to.be.gte(signerBalDiff);
+            expect(signerBalDiff).to.be.gte(amountToTransfer.sub(redemptionPrice.div(RAY)));
+
+            // amountToTransfer >= other balance diff >= amountToTransfer - redemptionPrice + 1
+            const otherBalDiff = await wrappedCoin.balanceOf(other.address);
+            expect(amountToTransfer).to.be.gte(otherBalDiff);
+            expect(otherBalDiff).to.be.gte(amountToTransfer.sub(redemptionPrice.div(RAY)));
+
+            // It is not garanteed that total supply remain the same and external balance is precisely transferd.
+            // expect(await wrappedCoin.balanceOf(signerAddr)).to.eq(balanceBefore.sub(amountToTransfer));
+            // expect(await wrappedCoin.balanceOf(other.address)).to.eq(amountToTransfer);
+        });
+    };
+    const practicalSizeExponents = [3, 10, 18, 21];
+    practicalSizeExponents.forEach(transferPrecisionTest);
 
     const approveTest = async exp => {
         it(`approve: increase allowance and decrease allowance - amount 10**${exp}`, async () => {
