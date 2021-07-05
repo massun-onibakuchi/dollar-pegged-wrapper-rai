@@ -68,7 +68,7 @@ contract WrappedCoin is ERC20Permit {
     }
 
     /**
-     * @dev mint tokens to a specified address.
+     * @dev update redemption price and mint tokens to a specified address.
      * @param account the address to transfer WrappedCoin to
      * @param underlyingAmount the amount of underlying token (RAI)
      * @return amount the amount of wrapped token to be minted
@@ -82,7 +82,8 @@ contract WrappedCoin is ERC20Permit {
     }
 
     /**
-     * @dev burn tokens and transfer underlying to a specified address
+     * @dev burn tokens and transfer underlying to a specified address.
+     *      The amount of burn is calculated by the redemption price at the time this function is called.
      * @param account the address to transfer RAI to
      * @param amount the amount of wrapped token to be burned
      * @return underlyingAmount the amount of underlying token to be transferred
