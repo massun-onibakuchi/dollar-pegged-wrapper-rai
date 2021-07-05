@@ -176,10 +176,11 @@ describe("WrappedCoin", async function () {
             const signerBalance = await wrappedCoin.balanceOfUnderlying(signerAddr);
             const otherBalance = await wrappedCoin.balanceOfUnderlying(other.address);
 
-            expect(signerBalance.add(otherBalance)).to.eq(amount); // The sum of the two account balances should remain the same.
+            expect(signerBalance.add(otherBalance)).to.eq(amount); // The sum of the two account internal balances should remain the same.
 
-            //  in same case, total supply does't remain the same.
-            // expect((await wrappedCoin.balanceOf(signerAddr)).add(await wrappedCoin.balanceOf(other.address)))).to.eq(totalSupply);
+            //  in some case, total supply and external balances diff does't remain the same.
+
+            // Internal balance
             expect(amount.sub(underlyingToTransfer)).to.eq(signerBalance);
             expect(underlyingToTransfer).to.eq(otherBalance);
         });
