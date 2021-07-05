@@ -156,7 +156,6 @@ describe("WrappedCoin", async function () {
             expect(await wrappedCoin.balanceOf(other.address)).to.eq(amountToTransfer);
         });
     };
-
     exponents.forEach(transferTest);
 
     const approveTest = async exp => {
