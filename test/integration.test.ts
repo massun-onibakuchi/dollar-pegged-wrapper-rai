@@ -99,126 +99,158 @@ describe("WrappedCoin", async function () {
         return await wrappedCoin.connect(minter).mint(await minter.getAddress(), amount, overrides);
     };
 
-    it("mint: update internal redemptionPrice", async () => {
-        await coin.connect(signer).approve(wrappedCoin.address, amount);
-        await expect(wrappedCoin.connect(signer).mint(signerAddr, amount)).to.emit(
-            oracleRelayer,
-            "UpdateRedemptionPrice",
-        );
-    });
-
-    const mintTest = async exp => {
-        it(`mint: increase minter and protocol balances amount 10**${exp}`, async () => {
-            const amount = BigNumber.from(10).pow(exp);
-            const balanceBefore = await coin.balanceOf(signerAddr);
-            const tx = await mint(signer, amount);
-            const redemptionPrice = await getRedemptionPriceFromEvent(oracleRelayer, tx);
-
-            expect(await wrappedCoin.balanceOfUnderlying(signerAddr)).to.eq(amount);
-            expect(await wrappedCoin.totalSupplyUnderlying()).to.eq(amount);
-
-            // wrapped coin balance = deposited balance * redemptionPrice
-            expect(await wrappedCoin.balanceOf(signerAddr)).to.eq(amount.mul(redemptionPrice).div(RAY));
-            expect(await wrappedCoin.totalSupply()).to.eq(amount.mul(redemptionPrice).div(RAY));
-            expect(await coin.balanceOf(signerAddr)).to.eq(balanceBefore.sub(amount));
-        });
-    };
-
     const exponents = [0, 2, 21];
-    exponents.forEach(mintTest);
 
-    it("burn: update internal redemptionPrice", async () => {
-        await mint(signer, amount);
-        await expect(wrappedCoin.burn(signerAddr, 100)).to.emit(oracleRelayer, "UpdateRedemptionPrice");
+    describe("mint", async () => {
+        it("mint: update internal redemptionPrice", async () => {
+            await coin.connect(signer).approve(wrappedCoin.address, amount);
+            await expect(wrappedCoin.connect(signer).mint(signerAddr, amount)).to.emit(
+                oracleRelayer,
+                "UpdateRedemptionPrice",
+            );
+        });
+
+        exponents.forEach(mintTest);
+
+        async function mintTest(exp) {
+            it(`mint: increase minter and protocol balances amount 10**${exp}`, async () => {
+                const amount = BigNumber.from(10).pow(exp);
+                const balanceBefore = await coin.balanceOf(signerAddr);
+                const tx = await mint(signer, amount);
+                const redemptionPrice = await getRedemptionPriceFromEvent(oracleRelayer, tx);
+
+                expect(await wrappedCoin.balanceOfUnderlying(signerAddr)).to.eq(amount);
+                expect(await wrappedCoin.totalSupplyUnderlying()).to.eq(amount);
+
+                // wrapped coin balance = deposited balance * redemptionPrice
+                expect(await wrappedCoin.balanceOf(signerAddr)).to.eq(amount.mul(redemptionPrice).div(RAY));
+                expect(await wrappedCoin.totalSupply()).to.eq(amount.mul(redemptionPrice).div(RAY));
+                expect(await coin.balanceOf(signerAddr)).to.eq(balanceBefore.sub(amount));
+            });
+        }
     });
 
-    const burnTest = async exp => {
-        it(`burn: increase minter and protocol balances amount 10**${exp}`, async () => {
-            const depositAmount = BigNumber.from(10).pow(exp);
-            const mintTx = await mint(signer, depositAmount);
-
-            const redemptionPrice = await getRedemptionPriceFromEvent(oracleRelayer, mintTx);
-            const minterBalance = await wrappedCoin.balanceOf(signerAddr);
-            await wrappedCoin.burn(signerAddr, minterBalance);
-
-            // underlyingBalanceAfterBurn = depositAmount - underlyingAmountToBurn != 0 because of rounding error
-            const underlyingAmountToBurn = minterBalance.mul(RAY).div(redemptionPrice);
-            const underlyingBalanceAfterBurn = depositAmount.sub(underlyingAmountToBurn);
-            expect(await wrappedCoin.balanceOfUnderlying(signerAddr)).to.eq(underlyingBalanceAfterBurn);
-            expect(await wrappedCoin.totalSupplyUnderlying()).to.eq(underlyingBalanceAfterBurn);
+    describe("burn", async () => {
+        it("burn: update internal redemptionPrice", async () => {
+            await mint(signer, amount);
+            await expect(wrappedCoin.burn(signerAddr, 100)).to.emit(oracleRelayer, "UpdateRedemptionPrice");
         });
-    };
+        exponents.forEach(burnTest);
 
-    exponents.forEach(burnTest);
+        async function burnTest(exp) {
+            it(`burn: increase minter and protocol balances amount 10**${exp}`, async () => {
+                const depositAmount = BigNumber.from(10).pow(exp);
+                const mintTx = await mint(signer, depositAmount);
 
-    const balanceTest = async denominator => {
-        it(`balanceOf: The balance is proportional to the redemptionPrice - ${(10 / denominator).toFixed(
-            2,
-        )}$`, async () => {
-            const redemptionPrice = await getRedemptionPriceFromEvent(oracleRelayer, await mint(signer, amount));
-            expect(await wrappedCoin.balanceOf(signerAddr)).to.eq(amount.mul(redemptionPrice).div(RAY));
-        });
-    };
+                const redemptionPrice = await getRedemptionPriceFromEvent(oracleRelayer, mintTx);
+                const minterBalance = await wrappedCoin.balanceOf(signerAddr);
+                await wrappedCoin.burn(signerAddr, minterBalance);
 
-    const denominators = [2, 3, 6, 9, 12];
-    denominators.forEach(balanceTest);
+                // underlyingBalanceAfterBurn = depositAmount - underlyingAmountToBurn != 0 because of rounding error
+                const underlyingAmountToBurn = minterBalance.mul(RAY).div(redemptionPrice);
+                const underlyingBalanceAfterBurn = depositAmount.sub(underlyingAmountToBurn);
+                expect(await wrappedCoin.balanceOfUnderlying(signerAddr)).to.eq(underlyingBalanceAfterBurn);
+                expect(await wrappedCoin.totalSupplyUnderlying()).to.eq(underlyingBalanceAfterBurn);
+            });
+        }
+    });
 
-    const transferTest = async exp => {
-        it(`transfer: transfer amount 10**${exp} from signer to other`, async () => {
-            const tx = await mint(signer, amount);
-            const redemptionPrice = await getRedemptionPriceFromEvent(oracleRelayer, tx);
-            const amountToTransfer = BigNumber.from(10).pow(exp);
-            const underlyingToTransfer = amountToTransfer.mul(RAY).div(redemptionPrice);
-            expect(await wrappedCoin.balanceOfUnderlying(signerAddr)).to.eq(amount);
+    describe("balanceOf", async () => {
+        const denominators = [2, 3, 6, 9, 12];
+        denominators.forEach(balanceTest);
 
-            await wrappedCoin.connect(signer).transfer(other.address, amountToTransfer);
+        async function balanceTest(denominator) {
+            it(`balanceOf: The balance is proportional to the redemptionPrice - ${(10 / denominator).toFixed(
+                2,
+            )}$`, async () => {
+                const redemptionPrice = await getRedemptionPriceFromEvent(oracleRelayer, await mint(signer, amount));
+                expect(await wrappedCoin.balanceOf(signerAddr)).to.eq(amount.mul(redemptionPrice).div(RAY));
+            });
+        }
+    });
 
-            const signerBalance = await wrappedCoin.balanceOfUnderlying(signerAddr);
-            const otherBalance = await wrappedCoin.balanceOfUnderlying(other.address);
+    describe("tranfer", async () => {
+        exponents.forEach(transferTest);
+        async function transferTest(exp) {
+            it(`transfer: transfer amount 10**${exp} from signer to other`, async () => {
+                const tx = await mint(signer, amount);
+                expect(await wrappedCoin.balanceOfUnderlying(signerAddr)).to.eq(amount);
 
-            expect(signerBalance.add(otherBalance)).to.eq(amount); // The sum of the two account balances should remain the same.
+                const redemptionPrice = await getRedemptionPriceFromEvent(oracleRelayer, tx);
+                const total = await wrappedCoin.balanceOf(signerAddr);
+                const amountToTransfer = BigNumber.from(10).pow(exp);
+                const underlyingToTransfer = amountToTransfer.mul(RAY).div(redemptionPrice);
 
-            //  in same case, total supply does't remain the same.
-            // expect((await wrappedCoin.balanceOf(signerAddr)).add(await wrappedCoin.balanceOf(other.address)))).to.eq(totalSupply);
-            expect(amount.sub(underlyingToTransfer)).to.eq(signerBalance);
-            expect(underlyingToTransfer).to.eq(otherBalance);
-        });
-    };
-    exponents.forEach(transferTest);
+                await wrappedCoin.connect(signer).transfer(other.address, amountToTransfer);
 
-    const approveTest = async exp => {
-        it(`approve: increase allowance and decrease allowance - amount 10**${exp}`, async () => {
-            const amount = BigNumber.from(10).pow(exp);
-            const tx = await mint(signer, amount);
-            const redemptionPrice = await getRedemptionPriceFromEvent(oracleRelayer, tx);
-            const amountToApprove = amount.mul(redemptionPrice).div(RAY);
+                const signerUBal = await wrappedCoin.balanceOfUnderlying(signerAddr);
+                const signerBal = await wrappedCoin.balanceOf(signerAddr);
+                const otherUBal = await wrappedCoin.balanceOfUnderlying(other.address);
+                const otherBal = await wrappedCoin.balanceOf(other.address);
 
-            await wrappedCoin.connect(signer).approve(other.address, amountToApprove);
-            expect(await wrappedCoin.allowance(signerAddr, other.address)).to.eq(amountToApprove);
+                expect(signerUBal.add(otherUBal)).to.eq(amount); // The sum of the two account balances should remain the same.
+                // expect(signerBal.add(otherBal)).to.eq(total); // The sum of the two account balances might not remain the same.
 
-            await wrappedCoin.connect(signer).approve(other.address, 0);
-            expect(await wrappedCoin.allowance(signerAddr, other.address)).to.eq(0);
-        });
-    };
-    exponents.forEach(approveTest);
+                //  in same case, total supply does't remain the same.
+                // expect((await wrappedCoin.balanceOf(signerAddr)).add(await wrappedCoin.balanceOf(other.address))).to.eq(
+                //     totalSupply,
+                // );
+                console.log("total :>>", total.toString());
+                console.log("amountToTransfer :>>", amountToTransfer.toString());
+                console.log("underlyingToTransfer :>>", underlyingToTransfer.toString());
+                console.log("signerBal :>> ", signerBal.toString()); // total - amountToTransfer
+                console.log("signerUBal :>> ", signerUBal.toString()); // amount - uToTransfer
+                console.log("otherBal :>> ", otherBal.toString()); // amountToTransfer
+                console.log("otherUBal :>> ", otherUBal.toString()); // uToTransfer
+                // internal balances should be presisely changed
+                expect(amount.sub(underlyingToTransfer)).to.eq(signerUBal);
+                expect(underlyingToTransfer).to.eq(otherUBal);
+                // external balances should be presisely changed
+                expect(amountToTransfer).to.eq(otherBal);
+                // expect(total.sub(amountToTransfer)).to.eq(signerBal);
+            });
+        }
+    });
 
-    const transferFromTest = async exp => {
-        it(`transferFrom: transfer from signer to other - amount 10**${exp}`, async () => {
-            const tx = await mint(signer, amount);
-            const redemptionPrice = await getRedemptionPriceFromEvent(oracleRelayer, tx);
-            const amountToApprove = BigNumber.from(10).pow(exp);
+    describe("approve", async () => {
+        exponents.forEach(approveTest);
 
-            await wrappedCoin.connect(signer).approve(other.address, amountToApprove);
-            await wrappedCoin.connect(other).transferFrom(signerAddr, other.address, amountToApprove);
+        async function approveTest(exp) {
+            it(`approve: increase allowance and decrease allowance - amount 10**${exp}`, async () => {
+                const amount = BigNumber.from(10).pow(exp);
+                const tx = await mint(signer, amount);
+                const redemptionPrice = await getRedemptionPriceFromEvent(oracleRelayer, tx);
+                const amountToApprove = amount.mul(redemptionPrice).div(RAY);
 
-            expect(await wrappedCoin.allowance(signerAddr, other.address)).to.eq(0);
-            expect(await wrappedCoin.balanceOfUnderlying(signerAddr)).to.eq(
-                amount.sub(amountToApprove.mul(RAY).div(redemptionPrice)),
-            );
-            expect(await wrappedCoin.balanceOfUnderlying(other.address)).to.eq(
-                amountToApprove.mul(RAY).div(redemptionPrice),
-            );
-        });
-    };
-    exponents.forEach(transferFromTest);
+                await wrappedCoin.connect(signer).approve(other.address, amountToApprove);
+                expect(await wrappedCoin.allowance(signerAddr, other.address)).to.eq(amountToApprove);
+
+                await wrappedCoin.connect(signer).approve(other.address, 0);
+                expect(await wrappedCoin.allowance(signerAddr, other.address)).to.eq(0);
+            });
+        }
+    });
+
+    describe("approve", async () => {
+        exponents.forEach(transferFromTest);
+
+        async function transferFromTest(exp) {
+            it(`transferFrom: transfer from signer to other - amount 10**${exp}`, async () => {
+                const tx = await mint(signer, amount);
+                const redemptionPrice = await getRedemptionPriceFromEvent(oracleRelayer, tx);
+                const amountToApprove = BigNumber.from(10).pow(exp);
+
+                await wrappedCoin.connect(signer).approve(other.address, amountToApprove);
+                await wrappedCoin.connect(other).transferFrom(signerAddr, other.address, amountToApprove);
+
+                expect(await wrappedCoin.allowance(signerAddr, other.address)).to.eq(0);
+                expect(await wrappedCoin.balanceOfUnderlying(signerAddr)).to.eq(
+                    amount.sub(amountToApprove.mul(RAY).div(redemptionPrice)),
+                );
+                expect(await wrappedCoin.balanceOfUnderlying(other.address)).to.eq(
+                    amountToApprove.mul(RAY).div(redemptionPrice),
+                );
+            });
+        }
+    });
 });

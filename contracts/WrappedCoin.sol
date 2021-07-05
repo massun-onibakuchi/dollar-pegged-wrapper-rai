@@ -2,9 +2,9 @@
 pragma solidity ^0.7.6;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/math/SafeMath.sol";
 
 import "./ERC20Permit.sol";
+import "./libraries/SafeDecimalMath.sol";
 import "./interfaces/IOracleRelayer.sol";
 
 // import "hardhat/console.sol";
@@ -31,9 +31,7 @@ contract WrappedCoin is ERC20Permit {
     //      be decreased by precisely y underlying amounts, and B's internal balance will be precisely
     //      increased by y underlying amounts, where x = y * redemptionPrice
 
-    using SafeMath for uint256;
-
-    uint256 public constant RAY = 1e27;
+    using SafeDecimalMath for uint256;
 
     /// @dev Rai redemption price (not the most updated value)
     /// The conversion rate, which means amount of wrapped coin per RAI.
@@ -67,7 +65,7 @@ contract WrappedCoin is ERC20Permit {
     }
 
     /**
-     * @dev mint tokens to a specified address.
+     * @dev mint tokens to a specified address. update redemption price before mint
      * @param account the address to transfer WrappedCoin to
      * @param underlyingAmount the amount of underlying token (RAI)
      * @return amount the amount of wrapped token to be minted
@@ -76,18 +74,19 @@ contract WrappedCoin is ERC20Permit {
         _updateRedemptionPrice();
         RAI.transferFrom(msg.sender, address(this), underlyingAmount);
         _mint(account, underlyingAmount);
-        amount = underlyingAmount.mul(_redemptionPrice).div(RAY);
+        amount = underlyingAmount.multiplyDecimalRoundPrecise(_redemptionPrice);
         emit Mint(account, amount, underlyingAmount);
     }
 
     /**
-     * @dev burn tokens and transfer underlying to a specified address
+     * @dev burn tokens and transfer underlying to a specified address.
+     * Use the redemption price when the function is executed, and then update redemption price.
      * @param account the address to transfer RAI to
      * @param amount the amount of wrapped token to be burned
      * @return underlyingAmount the amount of underlying token to be transferred
      */
     function burn(address account, uint256 amount) public returns (uint256 underlyingAmount) {
-        underlyingAmount = amount.mul(RAY).div(_redemptionPrice);
+        underlyingAmount = amount.divideDecimalRoundPrecise(_redemptionPrice);
         _updateRedemptionPrice();
         _burn(account, underlyingAmount);
         RAI.transfer(account, underlyingAmount);
@@ -95,12 +94,12 @@ contract WrappedCoin is ERC20Permit {
     }
 
     function burnAll(address account) public returns (uint256 underlyingAmount) {
-        uint256 redemptionPrice_ = _redemptionPrice;
+        uint256 amount = balanceOf(msg.sender); // Call balanceOf() here to make it the same as the way the burned amount is calculated in the burn()
         underlyingAmount = balanceOfUnderlying(msg.sender);
         _updateRedemptionPrice();
         _burn(account, underlyingAmount);
         RAI.transfer(account, underlyingAmount);
-        emit Burn(account, underlyingAmount.mul(redemptionPrice_).div(RAY), underlyingAmount);
+        emit Burn(account, amount, underlyingAmount);
     }
 
     /**
@@ -108,14 +107,14 @@ contract WrappedCoin is ERC20Permit {
      * @return The balance of the specified address.
      */
     function balanceOf(address account) public view override returns (uint256) {
-        return super.balanceOf(account).mul(_redemptionPrice).div(RAY);
+        return super.balanceOf(account).multiplyDecimalRoundPrecise(_redemptionPrice);
     }
 
     /**
      * @return total amounts of tokens.
      */
     function totalSupply() public view override returns (uint256) {
-        return super.totalSupply().mul(_redemptionPrice).div(RAY);
+        return super.totalSupply().multiplyDecimalRoundPrecise(_redemptionPrice);
     }
 
     /**
@@ -163,7 +162,7 @@ contract WrappedCoin is ERC20Permit {
         address recipient,
         uint256 amount
     ) internal virtual override {
-        uint256 underlyingAmount = amount.mul(RAY).div(_redemptionPrice);
+        uint256 underlyingAmount = amount.divideDecimalRoundPrecise(_redemptionPrice);
         super._transfer(spender, recipient, underlyingAmount);
     }
 
