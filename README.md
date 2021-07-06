@@ -8,6 +8,8 @@ An ERC20 wrapper for RAI that rebases balance so that it becomes a dollar pegged
 ## How it works
 If the RAI redemption price is currently $3, one RAI deposited in the wrapper would give back three wrapped tokens. After the initial deposit, if the redemption price changes to $6, the wrapped token holder will have six wrapped tokens which can be used to redeem the one RAI they deposited.
 
+![How it works](./img/mechanism.png)
+
  - WrappedRAI inherits Openzeppelin ERC20. WrappedRAI balance is internally represented with RAI denomination. But `_allowances` is denominated in WrappedRAI because the wrappedRAI-RAI conversion might change before it's fully paid.
 
 ```
@@ -23,9 +25,11 @@ If the RAI redemption price is currently $3, one RAI deposited in the wrapper wo
 ### Rounding error
 The function `transfer()` and `transferFrom()` can't presisely transfer external balance on display.
 
+There will be rounding errors in the calculation to convert between external and internal balances, but they should be negligible unless you send a much smaller amount than, say, 0.01$.
+
 #### Example
 
-If a sender initial internal RAI balance is 100 `amountToTransfer = 100` `redemptionPrice = 3.0`, then `underlyingToTransfer = 33` (= 100/3 = 33.3.. )
+If a sender initial internal RAI balance is 100, which values around 10\**-16 $ `amountToTransfer = 100` `redemptionPrice = 3.0`, then `underlyingToTransfer = 33` (= 100/3 = 33.3.. )
 
 |            | sender | recipient |
 |:----------:|:----------:|:-----------:|
@@ -42,8 +46,6 @@ If a sender initial internal RAI balance is 100 `amountToTransfer = 100` `redemp
 | Before transfer | 304 (100)  |  0  (0)   |
 | After transfer  | 206 (68)   | 97  (32)   |
 | Difference in balance  | -98 (-32)   | +97 (+32)  |
-
-There will be rounding errors in the calculation to convert between external and internal balances, but they should be negligible unless you send a much smaller amount than, say, 0.01$.
 
 ### Internal balance might become untransferable
 The function `transfer()` and  `transferFrom()` takes values to transfer and compute the corresponding internal values. If amounts to transfer are too small, or redemption price becomes larger enough, small amounts can become untransferable. Realistically, we could ignore the possibility of internal balance becoming untransferable. And WrappedRAI implements some function `**All()` such as `burnAll()`.
