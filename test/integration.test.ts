@@ -60,7 +60,6 @@ describe("WrappedCoin", async function () {
             oracleRelayer.address,
             name,
             symbol,
-            decimals,
             overrides,
         )) as WrappedCoinTest;
 

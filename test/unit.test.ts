@@ -42,7 +42,6 @@ describe("WrappedCoin", async function () {
             oracleRelayerMock.address,
             name,
             symbol,
-            decimals,
         )) as WrappedCoinTest;
     });
 
