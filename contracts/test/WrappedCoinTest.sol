@@ -14,9 +14,8 @@ contract WrappedCoinTest is WrappedCoin {
         IERC20 _RAI,
         IOracleRelayer _oracleRelayer,
         string memory _name,
-        string memory _symbol,
-        uint8 _decimals
-    ) WrappedCoin(_RAI, _oracleRelayer, _name, _symbol, _decimals) {}
+        string memory _symbol
+    ) WrappedCoin(_RAI, _oracleRelayer, _name, _symbol) {}
 
     function getRedemptionPrice() external view returns (uint256) {
         return _redemptionPrice;

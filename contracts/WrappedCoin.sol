@@ -8,8 +8,6 @@ import "./ERC20Permit.sol";
 import "./interfaces/IOracleRelayer.sol";
 import "./libraries/FullMath.sol";
 
-// import "hardhat/console.sol";
-
 /**
  * This is a ERC20 token, whcih wrapps Rai Reflexer index (RAI).
  * WrappedRAI is a mintable and burnable ERC20 token, but its supply can be adjusted
@@ -54,8 +52,7 @@ contract WrappedCoin is ERC20Permit {
         IERC20 _RAI,
         IOracleRelayer _oracleRelayer,
         string memory _name,
-        string memory _symbol,
-        uint8 _decimals
+        string memory _symbol
     ) ERC20Permit(_name, _symbol) {
         RAI = _RAI;
         oracleRelayer = _oracleRelayer;
@@ -63,8 +60,6 @@ contract WrappedCoin is ERC20Permit {
         require(_oracleRelayer.contractEnabled() == 1, "wrapped-coin/oracle-relayer-disabled");
         _redemptionPrice = _oracleRelayer.redemptionPrice();
         require(_redemptionPrice > 0, "wrapped-coin/initial-redemption-price-zero");
-
-        _setupDecimals(_decimals);
     }
 
     /**
