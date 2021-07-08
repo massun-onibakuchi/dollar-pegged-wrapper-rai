@@ -17,8 +17,10 @@ If the RAI redemption price is currently $3, one RAI deposited in the wrapper wo
     mapping (address => mapping (address => uint256)) private _allowances; // denominated in WrappedRAI
 ```
 
+ - WrappedRAI(DRAI) Decimals `18`
+  
  - Redemption price represents the conversion rate, which means the amount of WrappedRAI per RAI
-
+   -  `1 WrappedRAI = $ 1 = 1 RAI / redemptionPrice`
  - WrappedRAI recalulates rebases by updating RAI redemption price when its mint or burn function is called.
 
 ## Information
@@ -27,9 +29,9 @@ The function `transfer()` and `transferFrom()` can't presisely transfer external
 
 There will be rounding errors in the calculation to convert between external and internal balances, but they should be negligible unless you send a much smaller amount than, say, 0.01$.
 
-#### Example
+#### Examples of errors in transferring small amounts of money
 
-If a sender initial internal RAI balance is 100, which values around 10\**-16 $ `amountToTransfer = 100` `redemptionPrice = 3.0`, then `underlyingToTransfer = 33` (= 100/3 = 33.3.. )
+If a sender initial internal RAI balance is 100, which values around $ 10\**-16, `amountToTransfer = 100` = $ 3 \* 100 * 10\*\*-18  and `redemptionPrice = 3.0`, then `underlyingToTransfer = 33` (= 100/3 = 33.3.. )
 
 |            | sender | recipient |
 |:----------:|:----------:|:-----------:|
@@ -39,7 +41,7 @@ If a sender initial internal RAI balance is 100, which values around 10\**-16 $ 
 
 The number in parentheses ( ) indicates the internal balance.
 
-If a sender initial internal RAI balance is 100 `amountToTransfer = 100` `redemptionPrice = 3.04`, then `underlyingToTransfer = 32` (= 100/3.04 = 32.8..)
+If a sender initial internal RAI balance is 100, `amountToTransfer = 100` and `redemptionPrice = 3.04`, then `underlyingToTransfer = 32` (= 100/3.04 = 32.8..)
 
 |            | sender | recipient |
 |:----------:|:----------:|:-----------:|
