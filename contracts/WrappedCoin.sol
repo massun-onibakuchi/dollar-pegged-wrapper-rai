@@ -72,7 +72,7 @@ contract WrappedCoin is ERC20Permit {
         _updateRedemptionPrice();
         RAI.transferFrom(msg.sender, address(this), underlyingAmount);
         _mint(account, underlyingAmount);
-        amount = FullMath.mulDiv(underlyingAmount, _redemptionPrice, RAY);
+        amount = _raiToDrai(underlyingAmount);
         emit Mint(account, amount, underlyingAmount);
     }
 
@@ -84,7 +84,7 @@ contract WrappedCoin is ERC20Permit {
      * @return underlyingAmount the amount of underlying token to be transferred
      */
     function burn(address account, uint256 amount) public returns (uint256 underlyingAmount) {
-        underlyingAmount = FullMath.mulDiv(amount, RAY, _redemptionPrice);
+        underlyingAmount = _draiToRai(amount);
         _updateRedemptionPrice();
         _burn(account, underlyingAmount);
         RAI.transfer(account, underlyingAmount);
@@ -92,12 +92,12 @@ contract WrappedCoin is ERC20Permit {
     }
 
     function burnAll(address account) public returns (uint256 underlyingAmount) {
-        uint256 redemptionPrice_ = _redemptionPrice;
         underlyingAmount = balanceOfUnderlying(msg.sender);
+        uint256 burnedAmount = _raiToDrai(underlyingAmount);
         _updateRedemptionPrice();
         _burn(account, underlyingAmount);
         RAI.transfer(account, underlyingAmount);
-        emit Burn(account, FullMath.mulDiv(underlyingAmount, redemptionPrice_, RAY), underlyingAmount);
+        emit Burn(account, burnedAmount, underlyingAmount);
     }
 
     /**
@@ -105,14 +105,14 @@ contract WrappedCoin is ERC20Permit {
      * @return The balance of the specified address.
      */
     function balanceOf(address account) public view override returns (uint256) {
-        return FullMath.mulDiv(super.balanceOf(account), _redemptionPrice, RAY);
+        return _raiToDrai(super.balanceOf(account));
     }
 
     /**
      * @return total amounts of tokens.
      */
     function totalSupply() public view override returns (uint256) {
-        return FullMath.mulDiv(super.totalSupply(), _redemptionPrice, RAY);
+        return _raiToDrai(super.totalSupply());
     }
 
     /**
@@ -160,8 +160,28 @@ contract WrappedCoin is ERC20Permit {
         address recipient,
         uint256 amount
     ) internal virtual override {
-        uint256 underlyingAmount = FullMath.mulDiv(amount, RAY, _redemptionPrice);
+        uint256 underlyingAmount = _draiToRai(amount);
         super._transfer(spender, recipient, underlyingAmount);
+    }
+
+    /**
+     * @dev compute DRAI (wrappd coin) amount from a given underlying amount
+     *      this method use the internal redemption price, which might be outdated
+     * @param underlyingAmount Rai (underlying token) amount
+     * @return amount the amount of wrapped coin
+     */
+    function _raiToDrai(uint256 underlyingAmount) internal view returns (uint256 amount) {
+        amount = FullMath.mulDiv(underlyingAmount, _redemptionPrice, RAY);
+    }
+
+    /**
+     * @dev compute underlying amount from a given DRAI (wrappd coin) amount
+     *      this method use the internal redemption price, which might be outdated
+     * @param amount DRAI (wrapped token) amount
+     * @return underlyingAmount the amount of underlying token
+     */
+    function _draiToRai(uint256 amount) internal view returns (uint256 underlyingAmount) {
+        underlyingAmount = FullMath.mulDiv(amount, RAY, _redemptionPrice);
     }
 
     /**
