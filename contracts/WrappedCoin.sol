@@ -131,14 +131,12 @@ contract WrappedCoin is ERC20Permit {
     }
 
     function transferAll(address recipient) public virtual returns (bool) {
-        uint256 underlyingAmount = balanceOfUnderlying(msg.sender);
-        super._transfer(msg.sender, recipient, underlyingAmount);
+        transferAllFrom(msg.sender, recipient);
         return true;
     }
 
     function transferAllFrom(address spender, address recipient) public virtual returns (bool) {
-        uint256 underlyingAmount = balanceOfUnderlying(spender);
-        super._transfer(spender, recipient, underlyingAmount);
+        super._transfer(spender, recipient, balanceOfUnderlying(spender));
         return true;
     }
 
